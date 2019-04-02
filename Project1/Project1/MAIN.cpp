@@ -16,7 +16,7 @@ INT WINAPI WinMain(HINSTANCE hInstance,HINSTANCE,LPSTR,INT)
 		{
 			if(SUCCEEDED(g_pMain->InitD3D()))
 			{
-				g_pMain->Run();
+				g_pMain->Loop();
 			}
 		}
 		//アプリ終了
@@ -89,7 +89,7 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
 //
 //
 //メッセージループとアプリケーション処理の入り口
- void MAIN::Run()
+ void MAIN::Loop()
  {
 	 // メッセージループ
 	 MSG msg={0};
@@ -104,10 +104,18 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
 		 else
 		 {
 			 //アプリケーションの処理はここから飛ぶ。
+			 App();
 		 }
 	 }
 	 //アプリケーションの終了
  }
+ //
+ //アプリケーション処理。アプリのメイン関数。
+ void MAIN::App()
+ {
+	 Render();
+ }
+
 //DirectX初期化
 HRESULT MAIN::InitD3D()
 {
@@ -191,4 +199,15 @@ void MAIN::DestroyD3D()
 	SAFE_RELEASE(m_pDepthStencil);
 	SAFE_RELEASE(m_pDepthStencilView);
 	SAFE_RELEASE(m_pDevice);
+}
+//
+//シーンを画面にレンダリング
+void MAIN::Render()
+{
+	//画面クリア（実際は単色で画面を塗りつぶす処理）
+	float ClearColor[4] = { 0,0,1,1 };// クリア色作成　RGBAの順
+	m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, ClearColor);//画面クリア
+	//m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);//深度バッファクリア
+
+	m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
 }

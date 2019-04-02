@@ -9,7 +9,7 @@
 //定数定義
 #define WINDOW_WIDTH 640 //ウィンドウ幅
 #define WINDOW_HEIGHT 480 //ウィンドウ高さ
-#define APP_NAME "Direct3Dの初期化まで D3d11"
+#define APP_NAME "画面のクリア、背景塗りつぶし"
 //マクロ
 #define SAFE_RELEASE(x) if(x){x->Release(); x=NULL;}
 
@@ -22,7 +22,9 @@ public:
 	HRESULT InitWindow(HINSTANCE,INT,INT,INT,INT,LPCSTR);
 	HRESULT InitD3D();
 	LRESULT MsgProc(HWND,UINT,WPARAM,LPARAM);
-	void Run();
+	void Loop();//アプリケーションループ（メッセージループ、アプリケーション処理）
+	void App();//アプリケーション処理　親：Loop()
+	void Render();//レンダリング
 	void DestroyD3D();
 
 	HWND m_hWnd;
