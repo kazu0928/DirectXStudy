@@ -1,4 +1,5 @@
 #include "MAIN.h"
+using namespace DirectX;
 //グローバル変数
 MAIN* g_pMain=NULL;
 //関数プロトタイプの宣言
@@ -31,6 +32,19 @@ INT WINAPI WinMain(HINSTANCE hInstance,HINSTANCE,LPSTR,INT)
 LRESULT CALLBACK WndProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 {
 	return g_pMain->MsgProc(hWnd,uMsg,wParam,lParam);
+}
+//
+//
+//
+MAIN::MAIN()
+{
+	ZeroMemory(this, sizeof(MAIN));
+}
+//
+//
+//
+MAIN::~MAIN()
+{
 }
 //
 //
@@ -185,6 +199,16 @@ HRESULT MAIN::InitD3D()
 	m_pDevice->CreateRasterizerState(&rdc,&pIr);
 	m_pDeviceContext->RSSetState(pIr);
 	SAFE_RELEASE(pIr);
+	//シェーダー初期化
+	if (FAILED(InitShader()))
+	{
+		return E_FAIL;
+	}
+	//ポリゴン作成
+	if (FAILED(InitPolygon()))
+	{
+		return E_FAIL;
+	}
 
 	return S_OK;
 }
@@ -193,21 +217,165 @@ HRESULT MAIN::InitD3D()
 //
 void MAIN::DestroyD3D()
 {
+	SAFE_RELEASE(m_pConstantBuffer);
+	SAFE_RELEASE(m_pVertexShader);
+	SAFE_RELEASE(m_pPixelShader);
+	SAFE_RELEASE(m_pVertexBuffer);
+	SAFE_RELEASE(m_pVertexLayout);
 	SAFE_RELEASE(m_pSwapChain);
 	SAFE_RELEASE(m_pRenderTargetView);
-	SAFE_RELEASE(m_pDeviceContext);
-	SAFE_RELEASE(m_pDepthStencil);
 	SAFE_RELEASE(m_pDepthStencilView);
+	SAFE_RELEASE(m_pDepthStencil);
+	SAFE_RELEASE(m_pDeviceContext);
 	SAFE_RELEASE(m_pDevice);
 }
+//
+//
+//シェーダーを作成　頂点レイアウトを定義
+HRESULT MAIN::InitShader()
+{
+	//hlslファイル読み込み ブロブ作成　ブロブとはシェーダーの塊みたいなもの。XXシェーダーとして特徴を持たない。後で各種シェーダーに成り得る。
+	ID3DBlob *pCompiledShader = NULL;
+	ID3DBlob *pErrors = NULL;
+	//ブロブからバーテックスシェーダー作成
+	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
+	{
+		MessageBox(0, "hlsl読み込み失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pErrors);
+
+	if (FAILED(m_pDevice->CreateVertexShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &m_pVertexShader)))
+	{
+		SAFE_RELEASE(pCompiledShader);
+		MessageBox(0, "バーテックスシェーダー作成失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	//頂点インプットレイアウトを定義	
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+	UINT numElements = sizeof(layout) / sizeof(layout[0]);
+	//頂点インプットレイアウトを作成
+	if (FAILED(m_pDevice->CreateInputLayout(layout, numElements, pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), &m_pVertexLayout)))
+	{
+		return FALSE;
+	}
+	//ブロブからピクセルシェーダー作成
+	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
+	{
+		MessageBox(0, "hlsl読み込み失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pErrors);
+	if (FAILED(m_pDevice->CreatePixelShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &m_pPixelShader)))
+	{
+		SAFE_RELEASE(pCompiledShader);
+		MessageBox(0, "ピクセルシェーダー作成失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pCompiledShader);
+	//コンスタントバッファー作成　ここでは変換行列渡し用
+	D3D11_BUFFER_DESC cb;
+	cb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cb.ByteWidth = sizeof(SIMPLESHADER_CONSTANT_BUFFER);
+	cb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cb.MiscFlags = 0;
+	cb.StructureByteStride = 0;
+	cb.Usage = D3D11_USAGE_DYNAMIC;
+
+	if (FAILED(m_pDevice->CreateBuffer(&cb, NULL, &m_pConstantBuffer)))
+	{
+		return E_FAIL;
+	}
+	return S_OK;
+}
+//
+//
+//
+HRESULT MAIN::InitPolygon()
+{
+	//バーテックスバッファー作成
+	SimpleVertex vertices[] =
+	{
+		XMFLOAT3(0.0f, 0.5f, 0.0f),
+		XMFLOAT3(0.5f, -0.5f, 0.0f),
+		XMFLOAT3(-0.5f, -0.5f, 0.0f),
+	};
+	D3D11_BUFFER_DESC bd;
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(SimpleVertex) * 3;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = 0;
+	bd.MiscFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA InitData;
+	InitData.pSysMem = vertices;
+	if (FAILED(m_pDevice->CreateBuffer(&bd, &InitData, &m_pVertexBuffer)))
+	{
+		return E_FAIL;
+	}
+	//バーテックスバッファーをセット
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	m_pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
+
+	return S_OK;
+}
+//
 //
 //シーンを画面にレンダリング
 void MAIN::Render()
 {
 	//画面クリア（実際は単色で画面を塗りつぶす処理）
-	float ClearColor[4] = { 0,0,1,1 };// クリア色作成　RGBAの順
+	FLOAT ClearColor[4] = { 0,0,1,1 };// クリア色作成　RGBAの順
 	m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, ClearColor);//画面クリア
-	//m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);//深度バッファクリア
+	m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);//深度バッファクリア
+
+	/*DirectXMathライブラリでは演算に用いる場合はXMMATRIXを、入れ物はXMFLOAT4X4を使用*/
+	XMFLOAT4X4 mWorld;
+	XMFLOAT4X4 mView;
+	XMFLOAT4X4 mProj;
+
+	//ワールドトランスフォーム（絶対座標変換）
+	XMStoreFloat4x4(&mWorld, DirectX::XMMatrixRotationY(timeGetTime() / 5000.0f));//XMMATRIXからXMFLOAT4X4へ値を格納,回転
+	// ビュートランスフォーム（視点座標変換）
+	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f); //カメラ（視点）位置
+	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視位置
+	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上方位置
+	XMStoreFloat4x4(&mView, DirectX::XMMatrixLookAtLH(XMLoadFloat3(&vEyePt),XMLoadFloat3(&vLookatPt),XMLoadFloat3(&vUpVec)));
+	// プロジェクショントランスフォーム（射影変換）
+	XMStoreFloat4x4(&mProj, DirectX::XMMatrixPerspectiveFovLH(XM_PI / 4, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT, 0.1f, 100.0f));
+
+	//使用するシェーダーの登録	
+	m_pDeviceContext->VSSetShader(m_pVertexShader, NULL, 0);
+	m_pDeviceContext->PSSetShader(m_pPixelShader, NULL, 0);
+	//シェーダーのコンスタントバッファーに各種データを渡す	
+	D3D11_MAPPED_SUBRESOURCE pData;
+	SIMPLESHADER_CONSTANT_BUFFER cb;
+	if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+	{
+		//ワールド、カメラ、射影行列を渡す
+		XMFLOAT4X4 m;
+		XMStoreFloat4x4(&m,XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView) * XMLoadFloat4x4(&mProj));
+		XMStoreFloat4x4(&m,DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
+		cb.mWVP = m;
+		//カラーを渡す
+		XMFLOAT4 vColor(1, 0, 0, 1);
+		cb.vColor = vColor;
+		memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+		m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
+	}
+	//このコンスタントバッファーを使うシェーダーの登録
+	m_pDeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);
+	m_pDeviceContext->PSSetConstantBuffers(0, 1, &m_pConstantBuffer);
+	//頂点インプットレイアウトをセット
+	m_pDeviceContext->IASetInputLayout(m_pVertexLayout);
+	//プリミティブ・トポロジーをセット
+	m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//プリミティブをレンダリング
+	m_pDeviceContext->Draw(3, 0);
 
 	m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
 }
