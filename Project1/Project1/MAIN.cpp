@@ -128,6 +128,11 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
  void MAIN::App()
  {
 	 Render();
+	 //移動
+	 for (int i = 0; i < m_iNumModel; i++)
+	 {
+		 m_Model[i].vPos.x += 0.001f;
+	 }
  }
 
 //DirectX初期化
@@ -230,14 +235,15 @@ void MAIN::DestroyD3D()
 	SAFE_RELEASE(m_pDevice);
 }
 //
-//
+//後
 //シェーダーを作成　頂点レイアウトを定義
 HRESULT MAIN::InitShader()
 {
-	//hlslファイル読み込み ブロブ作成　ブロブとはシェーダーの塊みたいなもの。XXシェーダーとして特徴を持たない。後で各種シェーダーに成り得る。
+	//hlslファイル読み込み ブロブ作成　ブロブとはシェーダーの塊みたいなもの。シェーダーとして特徴を持たない。後で各種シェーダーに成り得る。
 	ID3DBlob *pCompiledShader = NULL;
 	ID3DBlob *pErrors = NULL;
 	//ブロブからバーテックスシェーダー作成
+	//D3DCompileFileはD3DXがないため書き直し後
 	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
 	{
 		MessageBox(0, "hlsl読み込み失敗", NULL, MB_OK);
@@ -320,6 +326,13 @@ HRESULT MAIN::InitPolygon()
 	UINT stride = sizeof(SimpleVertex);
 	UINT offset = 0;
 	m_pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
+	//全てのモデルで同じポリゴン。同じバーテックスバッファーを使う。モデルごとに異なるのは、モデルの位置と色。	
+	for (int i = 0; i < MAX_MODEL; i++)
+	{
+		m_Model[i].vPos = XMFLOAT3(float(rand()) / 1000.0f - 16.0f, float(rand()) / 1000.0f - 16.0f, float(rand()) / 1000.0f + 10.0f);//初期位置はランダム
+		m_Model[i].vColor = XMFLOAT4(float(rand()) / 32767.0f, float(rand()) / 32767.0f, float(rand()) / 32767.0f, 1.0f);//色もランダム
+	}
+	m_iNumModel = MAX_MODEL;
 
 	return S_OK;
 }
@@ -339,9 +352,10 @@ void MAIN::Render()
 	XMFLOAT4X4 mProj;
 
 	//ワールドトランスフォーム（絶対座標変換）
-	XMStoreFloat4x4(&mWorld, DirectX::XMMatrixRotationY(timeGetTime() / 5000.0f));//XMMATRIXからXMFLOAT4X4へ値を格納,回転
+	//XMStoreFloat4x4(&mWorld, DirectX::XMMatrixRotationY(timeGetTime() / 100.0f));//XMMATRIXからXMFLOAT4X4へ値を格納,回転
+
 	// ビュートランスフォーム（視点座標変換）
-	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f); //カメラ（視点）位置
+	XMFLOAT3 vEyePt(0.0f, 0.0f, -2.0f); //カメラ（視点）位置
 	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視位置
 	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上方位置
 	XMStoreFloat4x4(&mView, DirectX::XMMatrixLookAtLH(XMLoadFloat3(&vEyePt),XMLoadFloat3(&vLookatPt),XMLoadFloat3(&vUpVec)));
@@ -351,22 +365,6 @@ void MAIN::Render()
 	//使用するシェーダーの登録	
 	m_pDeviceContext->VSSetShader(m_pVertexShader, NULL, 0);
 	m_pDeviceContext->PSSetShader(m_pPixelShader, NULL, 0);
-	//シェーダーのコンスタントバッファーに各種データを渡す	
-	D3D11_MAPPED_SUBRESOURCE pData;
-	SIMPLESHADER_CONSTANT_BUFFER cb;
-	if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
-	{
-		//ワールド、カメラ、射影行列を渡す
-		XMFLOAT4X4 m;
-		XMStoreFloat4x4(&m,XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView) * XMLoadFloat4x4(&mProj));
-		XMStoreFloat4x4(&m,DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
-		cb.mWVP = m;
-		//カラーを渡す
-		XMFLOAT4 vColor(1, 0, 0, 1);
-		cb.vColor = vColor;
-		memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
-		m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
-	}
 	//このコンスタントバッファーを使うシェーダーの登録
 	m_pDeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);
 	m_pDeviceContext->PSSetConstantBuffers(0, 1, &m_pConstantBuffer);
@@ -374,8 +372,55 @@ void MAIN::Render()
 	m_pDeviceContext->IASetInputLayout(m_pVertexLayout);
 	//プリミティブ・トポロジーをセット
 	m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//プリミティブをレンダリング
-	m_pDeviceContext->Draw(3, 0);
+	//プリミティブをレンダリング 　複数なので、ワールドトランスフォームとそれを渡す部分をループ内にいれる（モデルごとに行う）
+	for (int i = 0; i < m_iNumModel; i++)
+	{
+		//ワールドトランスフォーム（絶対座標変換）
+		XMFLOAT4X4 mTrans;
+		XMStoreFloat4x4(&mTrans,DirectX::XMMatrixTranslation(m_Model[i].vPos.x, m_Model[i].vPos.y, m_Model[i].vPos.z));
+		mWorld = mTrans;
+		//シェーダーのコンスタントバッファーに各種データを渡す
+		D3D11_MAPPED_SUBRESOURCE pData;
+		SIMPLESHADER_CONSTANT_BUFFER cb;
+		if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+		{
+			//ワールド、カメラ、射影行列を渡す
+			XMFLOAT4X4 m;
+			XMStoreFloat4x4(&m,XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
+			DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
+			cb.mWVP = m;
+			//カラーを渡す
+			cb.vColor = m_Model[i].vColor;
+			memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+			m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
+		}
+		m_pDeviceContext->Draw(3, 0);
+	}
 
 	m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
+
+	//////シェーダーのコンスタントバッファーに各種データを渡す	
+	////D3D11_MAPPED_SUBRESOURCE pData;
+	////SIMPLESHADER_CONSTANT_BUFFER cb;
+	////if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+	////{
+	////	//ワールド、カメラ、射影行列を渡す
+	////	XMFLOAT4X4 m;
+	////	XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView) * XMLoadFloat4x4(&mProj));
+	////	XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
+	////	cb.mWVP = m;
+	////	//カラーを渡す
+	////	XMFLOAT4 vColor(1, 0, 0, 1);
+	////	cb.vColor = vColor;
+	////	memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+	////	m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
+	////}
+	//////頂点インプットレイアウトをセット
+	////m_pDeviceContext->IASetInputLayout(m_pVertexLayout);
+	//////プリミティブ・トポロジーをセット
+	////m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//////プリミティブをレンダリング
+	////m_pDeviceContext->Draw(3, 0);
+
+	////m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
 }
