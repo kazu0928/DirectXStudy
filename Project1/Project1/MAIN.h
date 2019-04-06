@@ -13,6 +13,7 @@
 #define WINDOW_WIDTH 640 //ウィンドウ幅
 #define WINDOW_HEIGHT 480 //ウィンドウ高さ
 #define MAX_MODEL 1000 //モデル最大数
+#define MAX_SHOT 400
 #define APP_NAME "ポリゴン複数表示"
 //マクロ
 #define SAFE_RELEASE(x) if(x){x->Release(); x;}
@@ -69,5 +70,6 @@ public:
 	//モデルのインスタンス配列
 	MODEL m_Model[MAX_MODEL];
 	int m_iNumModel;
-
+	MODEL m_Shot[MAX_SHOT];
+	int m_iNumShot;
 };

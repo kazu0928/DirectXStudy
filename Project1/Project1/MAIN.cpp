@@ -127,12 +127,45 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
  //アプリケーション処理。アプリのメイン関数。
  void MAIN::App()
  {
-	 Render();
-	 //移動
+	 static int DasisugiBousi = 0;//弾　出しすぎ防止用カウンター 400フレームに１発でるようにする
+	 DasisugiBousi++;
+	 if (DasisugiBousi > 400 && m_iNumShot < MAX_SHOT && GetKeyState(VK_SPACE) & 0x80)
+	 {
+		 DasisugiBousi = 0;
+		 m_Shot[m_iNumShot].vPos = XMFLOAT3(0, 0, -2);
+		 m_Shot[m_iNumShot].vColor = XMFLOAT4(1, 1, 1, 1);//弾は白
+		 m_iNumShot++;
+	 }
+	 //弾移動
+	 for (int i = 0; i < m_iNumShot; i++)
+	 {
+		 m_Shot[i].vPos.z += 0.001f;
+		 //キーボード入力 矢印キーで弾を操作
+		 if (GetKeyState(VK_LEFT) & 0x80)//左移動
+		 {
+			 m_Shot[i].vPos.x -= 0.001f;
+		 }
+		 if (GetKeyState(VK_RIGHT) & 0x80)//右移動
+		 {
+			 m_Shot[i].vPos.x += 0.001f;
+		 }
+		 if (GetKeyState(VK_UP) & 0x80)//左移動
+		 {
+			 m_Shot[i].vPos.y += 0.001f;
+		 }
+		 if (GetKeyState(VK_DOWN) & 0x80)//右移動
+		 {
+			 m_Shot[i].vPos.y -= 0.001f;
+		 }
+	 }
+	 //まと移動
 	 for (int i = 0; i < m_iNumModel; i++)
 	 {
-		 m_Model[i].vPos.x += 0.001f;
+		 m_Model[i].vPos.z -= 0.0002f;
 	 }
+
+	 Render();
+
  }
 
 //DirectX初期化
@@ -329,7 +362,7 @@ HRESULT MAIN::InitPolygon()
 	//全てのモデルで同じポリゴン。同じバーテックスバッファーを使う。モデルごとに異なるのは、モデルの位置と色。	
 	for (int i = 0; i < MAX_MODEL; i++)
 	{
-		m_Model[i].vPos = XMFLOAT3(float(rand()) / 1000.0f - 16.0f, float(rand()) / 1000.0f - 16.0f, float(rand()) / 1000.0f + 10.0f);//初期位置はランダム
+		m_Model[i].vPos = XMFLOAT3(float(rand()) / 5000.0f - 3.0f, float(rand()) / 5000.0f - 3.0f, float(rand()) / 5000.0f + 20.0f);//初期位置はランダム
 		m_Model[i].vColor = XMFLOAT4(float(rand()) / 32767.0f, float(rand()) / 32767.0f, float(rand()) / 32767.0f, 1.0f);//色もランダム
 	}
 	m_iNumModel = MAX_MODEL;
@@ -373,11 +406,12 @@ void MAIN::Render()
 	//プリミティブ・トポロジーをセット
 	m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//プリミティブをレンダリング 　複数なので、ワールドトランスフォームとそれを渡す部分をループ内にいれる（モデルごとに行う）
-	for (int i = 0; i < m_iNumModel; i++)
+	for (int i = 0; i < m_iNumShot; i++)
 	{
 		//ワールドトランスフォーム（絶対座標変換）
-		XMFLOAT4X4 mTrans;
-		XMStoreFloat4x4(&mTrans,DirectX::XMMatrixTranslation(m_Model[i].vPos.x, m_Model[i].vPos.y, m_Model[i].vPos.z));
+		XMFLOAT4X4 mTrans, mScale;
+		XMStoreFloat4x4(&mScale, DirectX::XMMatrixScaling(0.5, 0.5, 0.5));
+		XMStoreFloat4x4(&mTrans,DirectX::XMMatrixTranslation(m_Shot[i].vPos.x, m_Shot[i].vPos.y, m_Shot[i].vPos.z));
 		mWorld = mTrans;
 		//シェーダーのコンスタントバッファーに各種データを渡す
 		D3D11_MAPPED_SUBRESOURCE pData;
@@ -387,6 +421,30 @@ void MAIN::Render()
 			//ワールド、カメラ、射影行列を渡す
 			XMFLOAT4X4 m;
 			XMStoreFloat4x4(&m,XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
+			DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
+			cb.mWVP = m;
+			//カラーを渡す
+			cb.vColor = m_Shot[i].vColor;
+			memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+			m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
+		}
+		m_pDeviceContext->Draw(3, 0);
+	}
+	//1000個的レンダリング
+	for (int i = 0; i < m_iNumModel; i++)
+	{
+		//ワールドトランスフォーム（絶対座標変換）
+		XMFLOAT4X4 mTrans, mScale;
+		XMStoreFloat4x4(&mTrans, DirectX::XMMatrixTranslation(m_Model[i].vPos.x, m_Model[i].vPos.y, m_Model[i].vPos.z));
+		mWorld = mTrans;
+		//シェーダーのコンスタントバッファーに各種データを渡す
+		D3D11_MAPPED_SUBRESOURCE pData;
+		SIMPLESHADER_CONSTANT_BUFFER cb;
+		if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+		{
+			//ワールド、カメラ、射影行列を渡す
+			XMFLOAT4X4 m;
+			XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
 			DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
 			cb.mWVP = m;
 			//カラーを渡す
