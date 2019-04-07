@@ -1,4 +1,5 @@
 #include "MAIN.h"
+#include <iostream>
 using namespace DirectX;
 //グローバル変数
 MAIN* g_pMain=NULL;
@@ -7,15 +8,23 @@ LRESULT CALLBACK WndProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
 //
 //
 //アプリケーションのエントリー関数 
-INT WINAPI WinMain(HINSTANCE hInstance,HINSTANCE,LPSTR,INT)
+INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, INT)
 {
-	g_pMain=new MAIN;
-	if(g_pMain != NULL)
+	g_pMain = new MAIN;
+	if (g_pMain != NULL)
 	{
-		if(SUCCEEDED(g_pMain->InitWindow(hInstance,0,0,WINDOW_WIDTH,
-			WINDOW_HEIGHT,APP_NAME)))
+		if (SUCCEEDED(g_pMain->InitWindow(hInstance, 0, 0, WINDOW_WIDTH,
+			WINDOW_HEIGHT, APP_NAME)))
 		{
-			if(SUCCEEDED(g_pMain->InitD3D()))
+			if (FAILED(g_pMain->InitXAudio()))
+			{
+				return 0;
+			}
+			if (FAILED(g_pMain->LoadSound("blast.wav", 0)))
+			{
+				return 0;
+			}
+			if (SUCCEEDED(g_pMain->InitD3D()))
 			{
 				g_pMain->Loop();
 			}
@@ -50,7 +59,7 @@ MAIN::~MAIN()
 //
 //ウィンドウ作成
 HRESULT MAIN::InitWindow(HINSTANCE hInstance,
-		INT iX,INT iY,INT iWidth,INT iHeight,LPCSTR WindowName)
+		INT iX,INT iY,INT iWidth,INT iHeight,LPCWSTR WindowName)
  {
 	 // ウィンドウの定義
 	WNDCLASSEX  wc;
@@ -138,6 +147,8 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
 			 //xyzどれも同じものが入る
 			 if (in_out_data.x < 1.0f)
 			 {
+				 //効果音
+				 PlaySound(0);
 				 //消去処理
 				 //当たっているモデルを消す場合、そのモデルのデータに、配列最後のモデルのデータを上書き
 				 MODEL tmp;
@@ -288,7 +299,69 @@ void MAIN::DestroyD3D()
 	SAFE_RELEASE(m_pDepthStencil);
 	SAFE_RELEASE(m_pDeviceContext);
 	SAFE_RELEASE(m_pDevice);
+	SAFE_RELEASE(m_pXAudio2);
 }
+//
+//
+//
+HRESULT MAIN::InitXAudio()
+{
+	CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	HRESULT a;
+	if (FAILED(a = XAudio2Create(&m_pXAudio2,0, XAUDIO2_DEBUG_ENGINE)))
+	{
+		CoUninitialize();
+		return E_FAIL;
+	}
+	if (FAILED(m_pXAudio2->CreateMasteringVoice(&m_pMasteringVoice)))
+	{
+		CoUninitialize();
+		return E_FAIL;
+	}
+	return S_OK;
+}
+//
+//
+//フォーマット、波形バイトサイズ、波形データ　
+HRESULT MAIN::LoadSound(LPSTR szFileName, DWORD dwIndex)
+{
+	HMMIO hMmio = NULL;//WindowsマルチメディアAPIのハンドル(WindowsマルチメディアAPIはWAVファイル関係の操作用のAPI)
+	DWORD dwWavSize = 0;//WAVファイル内　WAVデータのサイズ（WAVファイルはWAVデータで占められているので、ほぼファイルサイズと同一）
+	WAVEFORMATEX* pwfex;//WAVのフォーマット 例）16ビット、44100Hz、ステレオなど
+	MMCKINFO ckInfo;//　チャンク情報
+	MMCKINFO riffckInfo;// 最上部チャンク（RIFFチャンク）保存用
+	PCMWAVEFORMAT pcmWaveForm;
+	//WAVファイル内のヘッダー情報（音データ以外）の確認と読み込み
+	hMmio = mmioOpenA(szFileName, NULL, MMIO_ALLOCBUF | MMIO_READ);
+	//ファイルポインタをRIFFチャンクの先頭にセットする
+	mmioDescend(hMmio, &riffckInfo, NULL, 0);
+	// ファイルポインタを'f' 'm' 't' ' ' チャンクにセットする
+	ckInfo.ckid = mmioFOURCC('f', 'm', 't', ' ');
+	mmioDescend(hMmio, &ckInfo, &riffckInfo, MMIO_FINDCHUNK);
+	//フォーマットを読み込む
+	mmioRead(hMmio, (HPSTR)&pcmWaveForm, sizeof(pcmWaveForm));
+	pwfex = (WAVEFORMATEX*)new CHAR[sizeof(WAVEFORMATEX)];
+	memcpy(pwfex, &pcmWaveForm, sizeof(pcmWaveForm));
+	pwfex->cbSize = 0;
+	mmioAscend(hMmio, &ckInfo, 0);
+	// WAVファイル内の音データの読み込み	
+	ckInfo.ckid = mmioFOURCC('d', 'a', 't', 'a');
+	mmioDescend(hMmio, &ckInfo, &riffckInfo, MMIO_FINDCHUNK);//データチャンクにセット
+	dwWavSize = ckInfo.cksize;
+	m_pWavBuffer[dwIndex] = new BYTE[dwWavSize];
+	DWORD dwOffset = ckInfo.dwDataOffset;
+	mmioRead(hMmio, (HPSTR)m_pWavBuffer[dwIndex], dwWavSize);
+	//ソースボイスにデータを詰め込む	
+	if (FAILED(m_pXAudio2->CreateSourceVoice(&m_pSourceVoice[dwIndex], pwfex)))
+	{
+		MessageBox(0, L"ソースボイス作成失敗", 0, MB_OK);
+		return E_FAIL;
+	}
+	m_dwWavSize[dwIndex] = dwWavSize;
+
+	return S_OK;
+}
+
 //
 //後
 //シェーダーを作成　頂点レイアウトを定義
@@ -301,7 +374,7 @@ HRESULT MAIN::InitShader()
 	//D3DCompileFileはD3DXがないため書き直し後
 	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
 	{
-		MessageBox(0, "hlsl読み込み失敗", NULL, MB_OK);
+		MessageBox(0, L"hlsl読み込み失敗", NULL, MB_OK);
 		return E_FAIL;
 	}
 	SAFE_RELEASE(pErrors);
@@ -309,7 +382,7 @@ HRESULT MAIN::InitShader()
 	if (FAILED(m_pDevice->CreateVertexShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &m_pVertexShader)))
 	{
 		SAFE_RELEASE(pCompiledShader);
-		MessageBox(0, "バーテックスシェーダー作成失敗", NULL, MB_OK);
+		MessageBox(0, L"バーテックスシェーダー作成失敗", NULL, MB_OK);
 		return E_FAIL;
 	}
 	//頂点インプットレイアウトを定義	
@@ -326,14 +399,14 @@ HRESULT MAIN::InitShader()
 	//ブロブからピクセルシェーダー作成
 	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
 	{
-		MessageBox(0, "hlsl読み込み失敗", NULL, MB_OK);
+		MessageBox(0, L"hlsl読み込み失敗", NULL, MB_OK);
 		return E_FAIL;
 	}
 	SAFE_RELEASE(pErrors);
 	if (FAILED(m_pDevice->CreatePixelShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &m_pPixelShader)))
 	{
 		SAFE_RELEASE(pCompiledShader);
-		MessageBox(0, "ピクセルシェーダー作成失敗", NULL, MB_OK);
+		MessageBox(0, L"ピクセルシェーダー作成失敗", NULL, MB_OK);
 		return E_FAIL;
 	}
 	SAFE_RELEASE(pCompiledShader);
@@ -503,4 +576,22 @@ void MAIN::Render()
 	////m_pDeviceContext->Draw(3, 0);
 
 	////m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
+}
+//
+//
+//
+HRESULT MAIN::PlaySound(DWORD dwIndex)
+{
+	XAUDIO2_BUFFER buffer = { 0 };
+	buffer.pAudioData = m_pWavBuffer[dwIndex];
+	buffer.Flags = XAUDIO2_END_OF_STREAM;
+	buffer.AudioBytes = m_dwWavSize[dwIndex];
+	if (FAILED(m_pSourceVoice[dwIndex]->SubmitSourceBuffer(&buffer)))
+	{
+		MessageBox(0, L"ソースボイスにサブミット失敗", 0, MB_OK);
+		return E_FAIL;
+	}
+	m_pSourceVoice[dwIndex]->Start(0, XAUDIO2_COMMIT_NOW);
+
+	return S_OK;
 }
