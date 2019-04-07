@@ -30,42 +30,29 @@ struct SimpleVertex
 {
 	DirectX::XMFLOAT3 Pos; //位置
 };
-//Simpleシェーダー用のコンスタントバッファーのアプリ側構造体
+//Simpleシェーダー用のコンスタントバッファーのアプリ側構造体 もちろんシェーダー内のコンスタントバッファーと一致している必要あり
 struct SIMPLESHADER_CONSTANT_BUFFER
 {
-	DirectX::XMFLOAT4X4 mWVP;
-	DirectX::XMFLOAT4 vColor;
+	DirectX::XMFLOAT4X4 mWVP;//ワールド、ビュー、射影の合成変換行列
 };
-//物体の構造体
-struct MODEL//このサンプルでは単なる三角ポリゴン
-{
-	DirectX::XMFLOAT3 vPos;
-	DirectX::XMFLOAT4 vColor;
-};
-
 //
 //
-//
+//MAINクラス　定義
 class MAIN
 {
 public:
-	MAIN();~MAIN();
-	HRESULT InitWindow(HINSTANCE,INT,INT,INT,INT,LPCWSTR);
+	MAIN();
+	~MAIN();
+	HRESULT InitWindow(HINSTANCE, INT, INT, INT, INT, LPCWSTR);
 	LRESULT MsgProc(HWND, UINT, WPARAM, LPARAM);
 	HRESULT InitD3D();
 	HRESULT InitPolygon();
 	HRESULT InitShader();
-
-	void Loop();  //アプリケーションループ（メッセージループ、アプリケーション処理）
-	void App();   //アプリケーション処理　親：Loop()
-	void Render();//レンダリング
+	void Loop();
+	void App();
+	void Render();
 	void DestroyD3D();
-	//音
-	HRESULT InitXAudio();
-	HRESULT LoadSound(LPSTR, DWORD);
-	HRESULT PlaySound(DWORD);
-
-	//アプリにひとつ
+	//↓アプリにひとつ
 	HWND m_hWnd;
 	ID3D11Device* m_pDevice;
 	ID3D11DeviceContext* m_pDeviceContext;
@@ -73,23 +60,12 @@ public:
 	ID3D11RenderTargetView* m_pRenderTargetView;
 	ID3D11DepthStencilView* m_pDepthStencilView;
 	ID3D11Texture2D* m_pDepthStencil;
-	IXAudio2* m_pXAudio2;
-	IXAudio2MasteringVoice* m_pMasteringVoice;
-	//モデルの種類ごと(モデルの構造が全て同一ならアプリにひとつ）
-	ID3D11InputLayout* m_pVertexLayout; //頂点レイアウト　座標＋法線、テクスチャ座標
-	ID3D11VertexShader* m_pVertexShader;//
+	ID3D11RasterizerState* m_pRasterizerState;
+	//↓モデルの種類ごと(モデルの構造が全て同一ならアプリにひとつ）
+	ID3D11InputLayout* m_pVertexLayout;
+	ID3D11VertexShader* m_pVertexShader;
 	ID3D11PixelShader* m_pPixelShader;
 	ID3D11Buffer* m_pConstantBuffer;
-	//モデルごと	
-	ID3D11Buffer* m_pVertexBuffer;//頂点を保存しておくメモリ領域
-	//モデルのインスタンス配列
-	MODEL m_Model[MAX_MODEL];
-	int m_iNumModel;
-	MODEL m_Shot[MAX_SHOT];
-	int m_iNumShot;
-	//サウンドファイルごと
-	IXAudio2SourceVoice* m_pSourceVoice[MAX_WAV];
-	BYTE* m_pWavBuffer[MAX_WAV];//波形データ（フォーマット等を含まない、純粋に波形データのみ）
-	DWORD m_dwWavSize[MAX_WAV];//波形データのサイズ
-
+	//↓モデルごと
+	ID3D11Buffer* m_pVertexBuffer;
 };

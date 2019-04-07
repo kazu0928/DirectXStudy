@@ -1,10 +1,9 @@
 #include "MAIN.h"
-#include <iostream>
 using namespace DirectX;
 //グローバル変数
-MAIN* g_pMain=NULL;
+MAIN* g_pMain = NULL;
 //関数プロトタイプの宣言
-LRESULT CALLBACK WndProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 //
 //
 //アプリケーションのエントリー関数 
@@ -16,21 +15,12 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, INT)
 		if (SUCCEEDED(g_pMain->InitWindow(hInstance, 0, 0, WINDOW_WIDTH,
 			WINDOW_HEIGHT, APP_NAME)))
 		{
-			if (FAILED(g_pMain->InitXAudio()))
-			{
-				return 0;
-			}
-			if (FAILED(g_pMain->LoadSound("blast.wav", 0)))
-			{
-				return 0;
-			}
 			if (SUCCEEDED(g_pMain->InitD3D()))
 			{
 				g_pMain->Loop();
 			}
 		}
 		//アプリ終了
-		g_pMain->DestroyD3D();
 		delete g_pMain;
 	}
 	return 0;
@@ -38,203 +28,140 @@ INT WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, INT)
 //
 //
 //OSから見たウィンドウプロシージャー（実際の処理はMAINクラスのプロシージャーで処理）
-LRESULT CALLBACK WndProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	return g_pMain->MsgProc(hWnd,uMsg,wParam,lParam);
+	return g_pMain->MsgProc(hWnd, uMsg, wParam, lParam);
 }
 //
 //
-//
+//クラスコンストラクター
 MAIN::MAIN()
 {
 	ZeroMemory(this, sizeof(MAIN));
 }
 //
 //
-//
+//クラスデストラクター
 MAIN::~MAIN()
 {
+	DestroyD3D();
 }
 //
 //
 //ウィンドウ作成
 HRESULT MAIN::InitWindow(HINSTANCE hInstance,
-		INT iX,INT iY,INT iWidth,INT iHeight,LPCWSTR WindowName)
- {
-	 // ウィンドウの定義
+	INT iX, INT iY, INT iWidth, INT iHeight, LPCWSTR WindowName)
+{
+	// ウィンドウの定義
 	WNDCLASSEX  wc;
-	ZeroMemory(&wc,sizeof(wc));
-	wc.cbSize = sizeof(wc);									/* 構造体の大きさ */
-	wc.style = CS_HREDRAW | CS_VREDRAW;//ウインドウのサイズが変更されたら再描画する、という指定/* スタイル */
-	wc.lpfnWndProc = WndProc;/* メッセージ処理関数 */
-	wc.hInstance = hInstance;/* プログラムのハンドル */
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);/* アイコン */
-	wc.hCursor = LoadCursor(NULL, IDC_ARROW);/*カーソル*/
-	wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);/*ブラシ*/
-	wc.lpszClassName = WindowName;/*クラス名*/
-	wc.hIconSm = LoadIcon(NULL,IDI_APPLICATION);
+	ZeroMemory(&wc, sizeof(wc));
+	wc.cbSize = sizeof(wc);
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.lpfnWndProc = WndProc;
+	wc.hInstance = hInstance;
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH)GetStockObject(LTGRAY_BRUSH);
+	wc.lpszClassName = WindowName;
+	wc.hIconSm = LoadIcon(NULL, IDI_APPLICATION);
 	RegisterClassEx(&wc);
-
 	//ウィンドウの作成
-	m_hWnd=CreateWindow(WindowName,WindowName,WS_OVERLAPPEDWINDOW,
-		0,0,iWidth,iHeight,0,0,hInstance,0);
-	 if(!m_hWnd) 
-	 {
-		 return E_FAIL;
-	 }
-	 //ウインドウの表示
-	 ShowWindow(m_hWnd,SW_SHOW);    
-	 UpdateWindow(m_hWnd) ;
+	m_hWnd = CreateWindow(WindowName, WindowName, WS_OVERLAPPEDWINDOW,
+		0, 0, iWidth, iHeight, 0, 0, hInstance, 0);
+	if (!m_hWnd)
+	{
+		return E_FAIL;
+	}
+	//ウインドウの表示
+	ShowWindow(m_hWnd, SW_SHOW);
+	UpdateWindow(m_hWnd);
 
-	 return S_OK;
- }
+	return S_OK;
+}
 //
 //
 //ウィンドウプロシージャー
- LRESULT MAIN::MsgProc(HWND hWnd,UINT iMsg,WPARAM wParam,LPARAM lParam)
+LRESULT MAIN::MsgProc(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
-	switch(iMsg)
+	switch (iMsg)
 	{
-		case WM_KEYDOWN:
-		switch((char)wParam)
+	case WM_KEYDOWN:
+		switch ((char)wParam)
 		{
-			case VK_ESCAPE://ESCキーで修了
+		case VK_ESCAPE://ESCキーで修了
 			PostQuitMessage(0);
 			break;
 		}
 		break;
-		case WM_DESTROY:
+	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
 	}
-	return DefWindowProc (hWnd, iMsg, wParam, lParam);
- }
+	return DefWindowProc(hWnd, iMsg, wParam, lParam);
+}
 //
 //
 //メッセージループとアプリケーション処理の入り口
- void MAIN::Loop()
- {
-	 // メッセージループ
-	 MSG msg={0};
-	 ZeroMemory(&msg,sizeof(msg));
-	 while(msg.message!=WM_QUIT)
-	 {
-		 if( PeekMessage(&msg,NULL,0,0,PM_REMOVE))
-		 {
-			 TranslateMessage(&msg);
-			 DispatchMessage(&msg);
-		 }
-		 else
-		 {
-			 //アプリケーションの処理はここから飛ぶ。
-			 App();
-		 }
-	 }
-	 //アプリケーションの終了
- }
- //
- //アプリケーション処理。アプリのメイン関数。
- void MAIN::App()
- {
-	 //弾(m_Shot)と的(m_Model)の当たり判定
-	 for (int i = 0; i < m_iNumShot; i++)
-	 {
-		 for (int k = 0; k < m_iNumModel; k++)
-		 {
-			 XMFLOAT3 in_out_data;
-
-			 DirectX::XMStoreFloat3(&in_out_data, DirectX::XMVector3Length((DirectX::XMLoadFloat3(&m_Shot[i].vPos) - DirectX::XMLoadFloat3(&m_Model[k].vPos))));
-			 //xyzどれも同じものが入る
-			 if (in_out_data.x < 1.0f)
-			 {
-				 //効果音
-				 PlaySound(0);
-				 //消去処理
-				 //当たっているモデルを消す場合、そのモデルのデータに、配列最後のモデルのデータを上書き
-				 MODEL tmp;
-				 memcpy(&m_Shot[i], &m_Shot[m_iNumShot - 1], sizeof(MODEL));
-				 m_iNumShot--;
-				 memcpy(&m_Model[k], &m_Model[m_iNumModel - 1], sizeof(MODEL));
-				 m_iNumModel--;
-				 break;
-			 }
-		 }
-	 }
-	 static int DasisugiBousi = 0;//弾　出しすぎ防止用カウンター 400フレームに１発でるようにする
-	 DasisugiBousi++;
-	 if (DasisugiBousi > 400 && m_iNumShot < MAX_SHOT && GetKeyState(VK_SPACE) & 0x80)
-	 {
-		 DasisugiBousi = 0;
-		 m_Shot[m_iNumShot].vPos = XMFLOAT3(0, 0, -2);
-		 m_Shot[m_iNumShot].vColor = XMFLOAT4(1, 1, 1, 1);//弾は白
-		 m_iNumShot++;
-	 }
-	 //弾移動
-	 for (int i = 0; i < m_iNumShot; i++)
-	 {
-		 m_Shot[i].vPos.z += 0.001f;
-		 //キーボード入力 矢印キーで弾を操作
-		 if (GetKeyState(VK_LEFT) & 0x80)//左移動
-		 {
-			 m_Shot[i].vPos.x -= 0.001f;
-		 }
-		 if (GetKeyState(VK_RIGHT) & 0x80)//右移動
-		 {
-			 m_Shot[i].vPos.x += 0.001f;
-		 }
-		 if (GetKeyState(VK_UP) & 0x80)//左移動
-		 {
-			 m_Shot[i].vPos.y += 0.001f;
-		 }
-		 if (GetKeyState(VK_DOWN) & 0x80)//右移動
-		 {
-			 m_Shot[i].vPos.y -= 0.001f;
-		 }
-	 }
-	 //まと移動
-	 for (int i = 0; i < m_iNumModel; i++)
-	 {
-		 m_Model[i].vPos.z -= 0.002f;
-	 }
-
-	 Render();
-
- }
-
-//DirectX初期化
+void MAIN::Loop()
+{
+	// メッセージループ
+	MSG msg = { 0 };
+	ZeroMemory(&msg, sizeof(msg));
+	while (msg.message != WM_QUIT)
+	{
+		if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		else
+		{
+			//アプリケーションの処理はここから飛ぶ。
+			App();
+		}
+	}
+}
+//
+//
+//アプリケーション処理。アプリのメイン関数。
+void MAIN::App()
+{
+	Render();
+}
+//
+//
+//Direct3D初期化
 HRESULT MAIN::InitD3D()
 {
-	//参考 http://marupeke296.com/DX10_No1_Init.html　、書籍
-	//デバイスとスワップチェーンの作成（構造体作成）
+	// デバイスとスワップチェーンの作成
 	DXGI_SWAP_CHAIN_DESC sd;
-	ZeroMemory( &sd, sizeof(sd) );
-	sd.BufferCount = 1;		//スワップチェーンのバッファー数を表す値です。フロント バッファーを含みます。
-	//バック バッファーの表示モードを表す DXGI_MODE_DESC 構造体です。
-	sd.BufferDesc.Width=WINDOW_WIDTH;				//解像度の幅を表す値
-	sd.BufferDesc.Height=WINDOW_HEIGHT;				//解像度の高さを表す値
-	sd.BufferDesc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;//表示フォーマットを表す DXGI_FORMAT 構造体 4 成分、16 ビット符号なし正規化整数フォーマット
-	sd.BufferDesc.RefreshRate.Numerator=60;			
-	sd.BufferDesc.RefreshRate.Denominator=1;
-	sd.BufferUsage=DXGI_USAGE_RENDER_TARGET_OUTPUT;//バックバッファの使用法
-	sd.OutputWindow=m_hWnd;	//出力先のウィンドウハンドル
-	sd.SampleDesc.Count=1;   //1xMSAA
-	sd.SampleDesc.Quality=0;
-	sd.Windowed=TRUE;	
+	ZeroMemory(&sd, sizeof(sd));
+	sd.BufferCount = 1;
+	sd.BufferDesc.Width = WINDOW_WIDTH;
+	sd.BufferDesc.Height = WINDOW_HEIGHT;
+	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	sd.BufferDesc.RefreshRate.Numerator = 60;
+	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	sd.OutputWindow = m_hWnd;
+	sd.SampleDesc.Count = 1;
+	sd.SampleDesc.Quality = 0;
+	sd.Windowed = TRUE;
+
 	D3D_FEATURE_LEVEL pFeatureLevels = D3D_FEATURE_LEVEL_11_0;
-	D3D_FEATURE_LEVEL* pFeatureLevel = NULL;	
-	//スワップチェーンの作成
-	if( FAILED( D3D11CreateDeviceAndSwapChain(NULL,D3D_DRIVER_TYPE_HARDWARE,NULL,
-		0,&pFeatureLevels,1,D3D11_SDK_VERSION,&sd,&m_pSwapChain,&m_pDevice,
-		pFeatureLevel,&m_pDeviceContext )) )
+	D3D_FEATURE_LEVEL* pFeatureLevel = NULL;
+
+	if (FAILED(D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL,
+		0, &pFeatureLevels, 1, D3D11_SDK_VERSION, &sd, &m_pSwapChain, &m_pDevice,
+		pFeatureLevel, &m_pDeviceContext)))
 	{
 		return FALSE;
 	}
-
 	//レンダーターゲットビューの作成
-	ID3D11Texture2D *pBackBuffer;//バックバッファのポインタ宣言
-	m_pSwapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ),(LPVOID*)&pBackBuffer); //スワップチェーンからバッファを受け取る   
-	m_pDevice->CreateRenderTargetView( pBackBuffer, NULL, &m_pRenderTargetView );
-	SAFE_RELEASE(pBackBuffer);	//バックバッファのリリース（参照減らし）
+	ID3D11Texture2D *pBackBuffer;
+	m_pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID*)&pBackBuffer);
+	m_pDevice->CreateRenderTargetView(pBackBuffer, NULL, &m_pRenderTargetView);
+	SAFE_RELEASE(pBackBuffer);
 	//深度ステンシルビューの作成
 	D3D11_TEXTURE2D_DESC descDepth;
 	descDepth.Width = WINDOW_WIDTH;
@@ -248,28 +175,28 @@ HRESULT MAIN::InitD3D()
 	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 	descDepth.CPUAccessFlags = 0;
 	descDepth.MiscFlags = 0;
-	m_pDevice->CreateTexture2D( &descDepth, NULL, &m_pDepthStencil );
-	m_pDevice->CreateDepthStencilView( m_pDepthStencil, NULL, &m_pDepthStencilView );
-	//レンダーターゲットビューと深度ステンシルビューをパイプラインにバインド（関連付け）
-	m_pDeviceContext->OMSetRenderTargets(1, &m_pRenderTargetView,m_pDepthStencilView);
+	m_pDevice->CreateTexture2D(&descDepth, NULL, &m_pDepthStencil);
+	m_pDevice->CreateDepthStencilView(m_pDepthStencil, NULL, &m_pDepthStencilView);
+	//レンダーターゲットビューと深度ステンシルビューをパイプラインにバインド
+	m_pDeviceContext->OMSetRenderTargets(1, &m_pRenderTargetView, m_pDepthStencilView);
 	//ビューポートの設定
 	D3D11_VIEWPORT vp;
-	vp.Width = WINDOW_WIDTH;//サイズ
+	vp.Width = WINDOW_WIDTH;
 	vp.Height = WINDOW_HEIGHT;
-	vp.MinDepth = 0.0f;//Z値の幅
+	vp.MinDepth = 0.0f;
 	vp.MaxDepth = 1.0f;
-	vp.TopLeftX = 0;//左上
+	vp.TopLeftX = 0;
 	vp.TopLeftY = 0;
-	m_pDeviceContext->RSSetViewports( 1, &vp );
+	m_pDeviceContext->RSSetViewports(1, &vp);
 	//ラスタライズ設定
 	D3D11_RASTERIZER_DESC rdc;
-	ZeroMemory(&rdc,sizeof(rdc));
-	rdc.CullMode=D3D11_CULL_NONE;
-	rdc.FillMode=D3D11_FILL_SOLID;
-	ID3D11RasterizerState* pIr=NULL;
-	m_pDevice->CreateRasterizerState(&rdc,&pIr);
-	m_pDeviceContext->RSSetState(pIr);
-	SAFE_RELEASE(pIr);
+	ZeroMemory(&rdc, sizeof(rdc));
+	rdc.CullMode = D3D11_CULL_NONE;
+	rdc.FillMode = D3D11_FILL_SOLID;
+	rdc.FrontCounterClockwise = TRUE;
+
+	m_pDevice->CreateRasterizerState(&rdc, &m_pRasterizerState);
+	m_pDeviceContext->RSSetState(m_pRasterizerState);
 	//シェーダー初期化
 	if (FAILED(InitShader()))
 	{
@@ -283,87 +210,9 @@ HRESULT MAIN::InitD3D()
 
 	return S_OK;
 }
-//
-//
-//
-void MAIN::DestroyD3D()
-{
-	SAFE_RELEASE(m_pConstantBuffer);
-	SAFE_RELEASE(m_pVertexShader);
-	SAFE_RELEASE(m_pPixelShader);
-	SAFE_RELEASE(m_pVertexBuffer);
-	SAFE_RELEASE(m_pVertexLayout);
-	SAFE_RELEASE(m_pSwapChain);
-	SAFE_RELEASE(m_pRenderTargetView);
-	SAFE_RELEASE(m_pDepthStencilView);
-	SAFE_RELEASE(m_pDepthStencil);
-	SAFE_RELEASE(m_pDeviceContext);
-	SAFE_RELEASE(m_pDevice);
-	SAFE_RELEASE(m_pXAudio2);
-}
-//
-//
-//
-HRESULT MAIN::InitXAudio()
-{
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	HRESULT a;
-	if (FAILED(a = XAudio2Create(&m_pXAudio2,0, XAUDIO2_DEBUG_ENGINE)))
-	{
-		CoUninitialize();
-		return E_FAIL;
-	}
-	if (FAILED(m_pXAudio2->CreateMasteringVoice(&m_pMasteringVoice)))
-	{
-		CoUninitialize();
-		return E_FAIL;
-	}
-	return S_OK;
-}
-//
-//
-//フォーマット、波形バイトサイズ、波形データ　
-HRESULT MAIN::LoadSound(LPSTR szFileName, DWORD dwIndex)
-{
-	HMMIO hMmio = NULL;//WindowsマルチメディアAPIのハンドル(WindowsマルチメディアAPIはWAVファイル関係の操作用のAPI)
-	DWORD dwWavSize = 0;//WAVファイル内　WAVデータのサイズ（WAVファイルはWAVデータで占められているので、ほぼファイルサイズと同一）
-	WAVEFORMATEX* pwfex;//WAVのフォーマット 例）16ビット、44100Hz、ステレオなど
-	MMCKINFO ckInfo;//　チャンク情報
-	MMCKINFO riffckInfo;// 最上部チャンク（RIFFチャンク）保存用
-	PCMWAVEFORMAT pcmWaveForm;
-	//WAVファイル内のヘッダー情報（音データ以外）の確認と読み込み
-	hMmio = mmioOpenA(szFileName, NULL, MMIO_ALLOCBUF | MMIO_READ);
-	//ファイルポインタをRIFFチャンクの先頭にセットする
-	mmioDescend(hMmio, &riffckInfo, NULL, 0);
-	// ファイルポインタを'f' 'm' 't' ' ' チャンクにセットする
-	ckInfo.ckid = mmioFOURCC('f', 'm', 't', ' ');
-	mmioDescend(hMmio, &ckInfo, &riffckInfo, MMIO_FINDCHUNK);
-	//フォーマットを読み込む
-	mmioRead(hMmio, (HPSTR)&pcmWaveForm, sizeof(pcmWaveForm));
-	pwfex = (WAVEFORMATEX*)new CHAR[sizeof(WAVEFORMATEX)];
-	memcpy(pwfex, &pcmWaveForm, sizeof(pcmWaveForm));
-	pwfex->cbSize = 0;
-	mmioAscend(hMmio, &ckInfo, 0);
-	// WAVファイル内の音データの読み込み	
-	ckInfo.ckid = mmioFOURCC('d', 'a', 't', 'a');
-	mmioDescend(hMmio, &ckInfo, &riffckInfo, MMIO_FINDCHUNK);//データチャンクにセット
-	dwWavSize = ckInfo.cksize;
-	m_pWavBuffer[dwIndex] = new BYTE[dwWavSize];
-	DWORD dwOffset = ckInfo.dwDataOffset;
-	mmioRead(hMmio, (HPSTR)m_pWavBuffer[dwIndex], dwWavSize);
-	//ソースボイスにデータを詰め込む	
-	if (FAILED(m_pXAudio2->CreateSourceVoice(&m_pSourceVoice[dwIndex], pwfex)))
-	{
-		MessageBox(0, L"ソースボイス作成失敗", 0, MB_OK);
-		return E_FAIL;
-	}
-	m_dwWavSize[dwIndex] = dwWavSize;
-
-	return S_OK;
-}
 
 //
-//後
+//
 //シェーダーを作成　頂点レイアウトを定義
 HRESULT MAIN::InitShader()
 {
@@ -427,19 +276,21 @@ HRESULT MAIN::InitShader()
 }
 //
 //
-//
+//バーテックスバッファー作成
 HRESULT MAIN::InitPolygon()
 {
-	//バーテックスバッファー作成
+	//頂点を定義
 	SimpleVertex vertices[] =
 	{
-		XMFLOAT3(0.0f, 0.5f, 0.0f),
-		XMFLOAT3(0.5f, -0.5f, 0.0f),
-		XMFLOAT3(-0.5f, -0.5f, 0.0f),
+		XMFLOAT3(-0.5,-0.5,0),//頂点1	
+		XMFLOAT3(-0.5,0.5,0), //頂点2
+		XMFLOAT3(0.5,-0.5,0),  //頂点3
+		XMFLOAT3(0.5,0.5,0), //頂点4	
 	};
+	//上の頂点でバーテックスバッファー作成
 	D3D11_BUFFER_DESC bd;
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * 3;
+	bd.ByteWidth = sizeof(SimpleVertex) * 4;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 	bd.MiscFlags = 0;
@@ -450,17 +301,6 @@ HRESULT MAIN::InitPolygon()
 	{
 		return E_FAIL;
 	}
-	//バーテックスバッファーをセット
-	UINT stride = sizeof(SimpleVertex);
-	UINT offset = 0;
-	m_pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
-	//全てのモデルで同じポリゴン。同じバーテックスバッファーを使う。モデルごとに異なるのは、モデルの位置と色。	
-	for (int i = 0; i < MAX_MODEL; i++)
-	{
-		m_Model[i].vPos = XMFLOAT3(float(rand()) / 5000.0f - 3.0f, float(rand()) / 5000.0f - 3.0f, float(rand()) / 5000.0f + 20.0f);//初期位置はランダム
-		m_Model[i].vColor = XMFLOAT4(float(rand()) / 32767.0f, float(rand()) / 32767.0f, float(rand()) / 32767.0f, 1.0f);//色もランダム
-	}
-	m_iNumModel = MAX_MODEL;
 
 	return S_OK;
 }
@@ -470,128 +310,72 @@ HRESULT MAIN::InitPolygon()
 void MAIN::Render()
 {
 	//画面クリア（実際は単色で画面を塗りつぶす処理）
-	FLOAT ClearColor[4] = { 0,0,1,1 };// クリア色作成　RGBAの順
+	float ClearColor[4] = { 0,0,1,1 };// クリア色作成　RGBAの順
 	m_pDeviceContext->ClearRenderTargetView(m_pRenderTargetView, ClearColor);//画面クリア
 	m_pDeviceContext->ClearDepthStencilView(m_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);//深度バッファクリア
 
-	/*DirectXMathライブラリでは演算に用いる場合はXMMATRIXを、入れ物はXMFLOAT4X4を使用*/
 	XMFLOAT4X4 mWorld;
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
-
 	//ワールドトランスフォーム（絶対座標変換）
-	//XMStoreFloat4x4(&mWorld, DirectX::XMMatrixRotationY(timeGetTime() / 100.0f));//XMMATRIXからXMFLOAT4X4へ値を格納,回転
-
+	XMStoreFloat4x4(&mWorld, XMMatrixRotationY(timeGetTime() / 110.0f));//単純にyaw回転させる
 	// ビュートランスフォーム（視点座標変換）
-	XMFLOAT3 vEyePt(0.0f, 0.0f, -2.0f); //カメラ（視点）位置
+	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f); //カメラ（視点）位置
 	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視位置
 	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上方位置
-	XMStoreFloat4x4(&mView, DirectX::XMMatrixLookAtLH(XMLoadFloat3(&vEyePt),XMLoadFloat3(&vLookatPt),XMLoadFloat3(&vUpVec)));
+	XMStoreFloat4x4(&mView, XMMatrixLookAtLH( XMLoadFloat3( &vEyePt), XMLoadFloat3(&vLookatPt), XMLoadFloat3(&vUpVec)));
 	// プロジェクショントランスフォーム（射影変換）
-	XMStoreFloat4x4(&mProj, DirectX::XMMatrixPerspectiveFovLH(XM_PI / 4, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT, 0.1f, 100.0f));
-
-	//使用するシェーダーの登録	
+	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(XM_PI / 4, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT, 0.1f, 110.0f));
+	//使用するシェーダーの登録
 	m_pDeviceContext->VSSetShader(m_pVertexShader, NULL, 0);
 	m_pDeviceContext->PSSetShader(m_pPixelShader, NULL, 0);
-	//このコンスタントバッファーを使うシェーダーの登録
-	m_pDeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);
-	m_pDeviceContext->PSSetConstantBuffers(0, 1, &m_pConstantBuffer);
+	//シェーダーのコンスタントバッファーに各種データを渡す
+	D3D11_MAPPED_SUBRESOURCE pData;
+	SIMPLESHADER_CONSTANT_BUFFER cb;
+	if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+	{
+		//ワールド、カメラ、射影行列を渡す
+		XMFLOAT4X4 m;
+		XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) *XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
+		XMStoreFloat4x4(&m, XMMatrixTranspose(XMLoadFloat4x4(&m)));
+		cb.mWVP = m;
+
+		memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+		m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
+	}
+
+	//このコンスタントバッファーを、どのシェーダーで使うかを指定
+	m_pDeviceContext->VSSetConstantBuffers(0, 1, &m_pConstantBuffer);//バーテックスバッファーで使う
+	m_pDeviceContext->PSSetConstantBuffers(0, 1, &m_pConstantBuffer);//ピクセルシェーダーでの使う
+	//バーテックスバッファーをセット
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	m_pDeviceContext->IASetVertexBuffers(0, 1, &m_pVertexBuffer, &stride, &offset);
 	//頂点インプットレイアウトをセット
 	m_pDeviceContext->IASetInputLayout(m_pVertexLayout);
 	//プリミティブ・トポロジーをセット
-	m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//プリミティブをレンダリング 　複数なので、ワールドトランスフォームとそれを渡す部分をループ内にいれる（モデルごとに行う）
-	for (int i = 0; i < m_iNumShot; i++)
-	{
-		//ワールドトランスフォーム（絶対座標変換）
-		XMFLOAT4X4 mTrans, mScale;
-		XMStoreFloat4x4(&mScale, DirectX::XMMatrixScaling(0.5, 0.5, 0.5));
-		XMStoreFloat4x4(&mTrans,DirectX::XMMatrixTranslation(m_Shot[i].vPos.x, m_Shot[i].vPos.y, m_Shot[i].vPos.z));
-		mWorld = mTrans;
-		//シェーダーのコンスタントバッファーに各種データを渡す
-		D3D11_MAPPED_SUBRESOURCE pData;
-		SIMPLESHADER_CONSTANT_BUFFER cb;
-		if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
-		{
-			//ワールド、カメラ、射影行列を渡す
-			XMFLOAT4X4 m;
-			XMStoreFloat4x4(&m,XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
-			DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
-			cb.mWVP = m;
-			//カラーを渡す
-			cb.vColor = m_Shot[i].vColor;
-			memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
-			m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
-		}
-		m_pDeviceContext->Draw(3, 0);
-	}
-	//1000個的レンダリング
-	for (int i = 0; i < m_iNumModel; i++)
-	{
-		//ワールドトランスフォーム（絶対座標変換）
-		XMFLOAT4X4 mTrans, mScale;
-		XMStoreFloat4x4(&mTrans, DirectX::XMMatrixTranslation(m_Model[i].vPos.x, m_Model[i].vPos.y, m_Model[i].vPos.z));
-		mWorld = mTrans;
-		//シェーダーのコンスタントバッファーに各種データを渡す
-		D3D11_MAPPED_SUBRESOURCE pData;
-		SIMPLESHADER_CONSTANT_BUFFER cb;
-		if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
-		{
-			//ワールド、カメラ、射影行列を渡す
-			XMFLOAT4X4 m;
-			XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
-			DirectX::XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
-			cb.mWVP = m;
-			//カラーを渡す
-			cb.vColor = m_Model[i].vColor;
-			memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
-			m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
-		}
-		m_pDeviceContext->Draw(3, 0);
-	}
+	m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//プリミティブをレンダリング
+	m_pDeviceContext->Draw(4, 0);
 
 	m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
-
-	//////シェーダーのコンスタントバッファーに各種データを渡す	
-	////D3D11_MAPPED_SUBRESOURCE pData;
-	////SIMPLESHADER_CONSTANT_BUFFER cb;
-	////if (SUCCEEDED(m_pDeviceContext->Map(m_pConstantBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
-	////{
-	////	//ワールド、カメラ、射影行列を渡す
-	////	XMFLOAT4X4 m;
-	////	XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) * XMLoadFloat4x4(&mView) * XMLoadFloat4x4(&mProj));
-	////	XMStoreFloat4x4(&m, DirectX::XMMatrixTranspose(XMLoadFloat4x4(&m)));
-	////	cb.mWVP = m;
-	////	//カラーを渡す
-	////	XMFLOAT4 vColor(1, 0, 0, 1);
-	////	cb.vColor = vColor;
-	////	memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
-	////	m_pDeviceContext->Unmap(m_pConstantBuffer, 0);
-	////}
-	//////頂点インプットレイアウトをセット
-	////m_pDeviceContext->IASetInputLayout(m_pVertexLayout);
-	//////プリミティブ・トポロジーをセット
-	////m_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//////プリミティブをレンダリング
-	////m_pDeviceContext->Draw(3, 0);
-
-	////m_pSwapChain->Present(0, 0);//画面更新（バックバッファをフロントバッファに）	
 }
-//
-//
-//
-HRESULT MAIN::PlaySound(DWORD dwIndex)
-{
-	XAUDIO2_BUFFER buffer = { 0 };
-	buffer.pAudioData = m_pWavBuffer[dwIndex];
-	buffer.Flags = XAUDIO2_END_OF_STREAM;
-	buffer.AudioBytes = m_dwWavSize[dwIndex];
-	if (FAILED(m_pSourceVoice[dwIndex]->SubmitSourceBuffer(&buffer)))
-	{
-		MessageBox(0, L"ソースボイスにサブミット失敗", 0, MB_OK);
-		return E_FAIL;
-	}
-	m_pSourceVoice[dwIndex]->Start(0, XAUDIO2_COMMIT_NOW);
 
-	return S_OK;
+//
+//
+//全てのインターフェイスをリリース
+void MAIN::DestroyD3D()
+{
+	SAFE_RELEASE(m_pRasterizerState);
+	SAFE_RELEASE(m_pConstantBuffer);
+	SAFE_RELEASE(m_pVertexShader);
+	SAFE_RELEASE(m_pPixelShader);
+	SAFE_RELEASE(m_pVertexBuffer);
+	SAFE_RELEASE(m_pVertexLayout);
+	SAFE_RELEASE(m_pSwapChain);
+	SAFE_RELEASE(m_pRenderTargetView);
+	SAFE_RELEASE(m_pDepthStencilView);
+	SAFE_RELEASE(m_pDepthStencil);
+	SAFE_RELEASE(m_pDeviceContext);
+	SAFE_RELEASE(m_pDevice);
 }
