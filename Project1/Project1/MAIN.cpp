@@ -127,6 +127,28 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
  //アプリケーション処理。アプリのメイン関数。
  void MAIN::App()
  {
+	 //弾(m_Shot)と的(m_Model)の当たり判定
+	 for (int i = 0; i < m_iNumShot; i++)
+	 {
+		 for (int k = 0; k < m_iNumModel; k++)
+		 {
+			 XMFLOAT3 in_out_data;
+
+			 DirectX::XMStoreFloat3(&in_out_data, DirectX::XMVector3Length((DirectX::XMLoadFloat3(&m_Shot[i].vPos) - DirectX::XMLoadFloat3(&m_Model[k].vPos))));
+			 //xyzどれも同じものが入る
+			 if (in_out_data.x < 1.0f)
+			 {
+				 //消去処理
+				 //当たっているモデルを消す場合、そのモデルのデータに、配列最後のモデルのデータを上書き
+				 MODEL tmp;
+				 memcpy(&m_Shot[i], &m_Shot[m_iNumShot - 1], sizeof(MODEL));
+				 m_iNumShot--;
+				 memcpy(&m_Model[k], &m_Model[m_iNumModel - 1], sizeof(MODEL));
+				 m_iNumModel--;
+				 break;
+			 }
+		 }
+	 }
 	 static int DasisugiBousi = 0;//弾　出しすぎ防止用カウンター 400フレームに１発でるようにする
 	 DasisugiBousi++;
 	 if (DasisugiBousi > 400 && m_iNumShot < MAX_SHOT && GetKeyState(VK_SPACE) & 0x80)
@@ -161,7 +183,7 @@ HRESULT MAIN::InitWindow(HINSTANCE hInstance,
 	 //まと移動
 	 for (int i = 0; i < m_iNumModel; i++)
 	 {
-		 m_Model[i].vPos.z -= 0.0002f;
+		 m_Model[i].vPos.z -= 0.002f;
 	 }
 
 	 Render();
