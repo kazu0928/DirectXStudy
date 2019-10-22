@@ -17,6 +17,6 @@ float4 VS(float4 Pos : POSITION) : SV_POSITION
 //
 float4 PS(float4 Pos : SV_POSITION) : SV_Target
 {
-	float4 color = float4(0,1,0,0);
+	float4 color = float4(0,1,Pos.x,0);
 	return color;
 }
