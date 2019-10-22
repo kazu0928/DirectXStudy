@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Project1", "Project1\Projec
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DX11MyLib", "DX11MyLib\DX11MyLib.vcxproj", "{AD08DF78-FBF9-40F6-A5D0-9CDC263CBF61}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectXS", "DirectXS\DirectXS.vcxproj", "{1B677462-7B9F-450D-8297-224E10E87971}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -31,6 +33,14 @@ Global
 		{AD08DF78-FBF9-40F6-A5D0-9CDC263CBF61}.Release|x64.Build.0 = Release|x64
 		{AD08DF78-FBF9-40F6-A5D0-9CDC263CBF61}.Release|x86.ActiveCfg = Release|Win32
 		{AD08DF78-FBF9-40F6-A5D0-9CDC263CBF61}.Release|x86.Build.0 = Release|Win32
+		{1B677462-7B9F-450D-8297-224E10E87971}.Debug|x64.ActiveCfg = Debug|x64
+		{1B677462-7B9F-450D-8297-224E10E87971}.Debug|x64.Build.0 = Debug|x64
+		{1B677462-7B9F-450D-8297-224E10E87971}.Debug|x86.ActiveCfg = Debug|Win32
+		{1B677462-7B9F-450D-8297-224E10E87971}.Debug|x86.Build.0 = Debug|Win32
+		{1B677462-7B9F-450D-8297-224E10E87971}.Release|x64.ActiveCfg = Release|x64
+		{1B677462-7B9F-450D-8297-224E10E87971}.Release|x64.Build.0 = Release|x64
+		{1B677462-7B9F-450D-8297-224E10E87971}.Release|x86.ActiveCfg = Release|Win32
+		{1B677462-7B9F-450D-8297-224E10E87971}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

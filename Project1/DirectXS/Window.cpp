@@ -12,9 +12,8 @@ INT WINAPI WinMain(HINSTANCE _hIns,HINSTANCE _hIns2, LPSTR _lps,INT _int)
 	if (g_pWindow == NULL) return 0;
 	if (SUCCEEDED(g_pWindow->InitWindow(_hIns, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, APP_NAME)))
 	{
-
-
 	}
+	delete g_pWindow;
 	return 0;
 }
 //ウィンドウ作成
