@@ -9,10 +9,13 @@
 class Window
 {
 public:
+	Window ();
+	~Window ();
 	//ウィンドウの初期化
 	HRESULT InitWindow(HINSTANCE, INT, INT, INT, INT, LPCWSTR);
+	//メッセージプロシージャ
 	LRESULT MsgProc(HWND, UINT, WPARAM, LPARAM);
 	HWND w_hWnd = NULL;//ウィンドウのハンドル
-	void Loop(void(*)());
+	void Loop(void(*)());//ループ
 };
 

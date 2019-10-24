@@ -91,4 +91,14 @@ void Window::Loop(void (*f)())
 	}
 }
 
+//コンストラクタ
+Window::Window ()
+{
+	ZeroMemory (this, sizeof (Window));
+}
+//デストラクタ
+Window::~Window ()
+{
+}
+
 
