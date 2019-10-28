@@ -49,9 +49,20 @@ void Main::Render ()
 	float ClearColor[4] = { 0,0,0.3f,1 };
 	g_pD3DX->RenderClearColor(ClearColor);
 	
+	//ビュートランスフォーム
 	XMFLOAT4X4 mWorld, mView, mProj;
-
-
+	//ワールドトランスフォーム(ワールド座標)
+	XMStoreFloat4x4(&mWorld, XMMatrixTranslation(0, 0, 0));
+	//ビュートランスフォーム
+	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f);//カメラの位置
+	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視する方向
+	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上位置
+	XMStoreFloat4x4(&mView, XMMatrixLookAtLH(XMLoadFloat3(&vEyePt), XMLoadFloat3(&vLookatPt), XMLoadFloat3(&vUpVec)));
+	//プロジェクショントランスフォーム
+	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(XM_PI/4/*FOV(ラジアン)*/, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT/*アス比*/, 0.1f/*近クリップ（表示領域までの距離）*/, 110.0f/*遠クリップ（表示領域）*/));
+	//シェーダの登録
+	g_pD3DX->d_pDeviceContext->VSSetShader(g_pD3DX->d_pVertexShader,NULL,0);
+	g_pD3DX->d_pDeviceContext->PSSetShader(g_pD3DX->d_pPixelShader, NULL, 0);
 	//画面更新
 	g_pD3DX->UpdateDisplay();
 
