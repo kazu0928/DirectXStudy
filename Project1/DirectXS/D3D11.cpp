@@ -2,6 +2,7 @@
 
 extern Window* g_pWindow;//Windowクラス
 extern D3DX* g_pD3DX;
+using namespace DirectX;
 
 D3DX::D3DX ()
 {
@@ -11,7 +12,7 @@ D3DX::~D3DX ()
 {
 	DestroyD3D ();
 }
-
+#pragma region 初期化
 //Direct3D初期化
 HRESULT D3DX::InitD3D ()
 {
@@ -82,9 +83,75 @@ HRESULT D3DX::InitD3D ()
 
 	d_pDevice->CreateRasterizerState (&rdc, &d_pRasterizerState);
 	d_pDeviceContext->RSSetState (d_pRasterizerState);
-
+	//シェーダ初期化
+	if (FAILED(InitShader()))
+	{
+		return E_FAIL;
+	}
 	return S_OK;
 }
+
+//シェーダの初期化
+HRESULT D3DX::InitShader()
+{
+	//実行時コンパイルで実装
+	ID3DBlob *pCompiledShader = NULL;
+	ID3DBlob *pErrors = NULL;
+	//コンパイル
+	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "VS", "vs_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader, &pErrors)))
+	{
+		MessageBox(0, L"hlslコンパイル失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pErrors);
+	//頂点シェーダ作成
+	if (FAILED(d_pDevice->CreateVertexShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &d_pVertexShader )))
+	{
+		SAFE_RELEASE(pCompiledShader);
+		MessageBox(0, L"バーテックスシェーダー作成失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pCompiledShader);
+	//インプットレイアウトを定義
+	D3D11_INPUT_ELEMENT_DESC layout[] =
+	{
+		{ "POSITION",0,DXGI_FORMAT_R32G32B32A32_FLOAT,0,0,D3D11_INPUT_PER_VERTEX_DATA,0},
+	};
+	//入力データ型の数を算出
+	UINT numElements = sizeof(layout) / sizeof(layout[0]);
+	if (FAILED(d_pDevice->CreateInputLayout(layout, numElements, pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), &d_pVertexLayout)))
+	{
+		return FALSE;
+	}
+	//ピクセルシェーダ作成
+	if (FAILED(D3DCompileFromFile(L"Simple.hlsl", NULL, D3D_COMPILE_STANDARD_FILE_INCLUDE, "PS", "ps_5_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &pCompiledShader,&pErrors)))
+	{
+		MessageBox(0, L"hlslコンパイル失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pErrors);
+	if (FAILED(d_pDevice->CreatePixelShader(pCompiledShader->GetBufferPointer(), pCompiledShader->GetBufferSize(), NULL, &d_pPixelShader)))
+	{
+		SAFE_RELEASE(pCompiledShader);
+		MessageBox(0, L"ピクセルシェーダー作成失敗", NULL, MB_OK);
+		return E_FAIL;
+	}
+	SAFE_RELEASE(pCompiledShader);
+	//コンスタントバッファ(シェーダとアプリ間での変数等のやり取り用)
+	D3D11_BUFFER_DESC cb;
+	cb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	cb.ByteWidth = sizeof(CB_SIMPLE);
+	cb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	cb.MiscFlags = 0;
+	cb.StructureByteStride = 0;
+	cb.Usage = D3D11_USAGE_DYNAMIC;
+	if (FAILED(d_pDevice->CreateBuffer(&cb, NULL, &d_pConstantBuffer)))
+	{
+		return E_FAIL;
+	}
+	return S_OK;
+}
+#pragma endregion
 
 //全てのインターフェイスをリリース
 void D3DX::DestroyD3D ()
@@ -96,4 +163,52 @@ void D3DX::DestroyD3D ()
 	SAFE_RELEASE (d_pDepthStencil);
 	SAFE_RELEASE (d_pDeviceContext);
 	SAFE_RELEASE (d_pDevice);
+}
+//
+/*↓ラッパー関数*/
+//
+
+/// <summary>
+/// 画面の更新
+/// </summary>
+void D3DX::UpdateDisplay()
+{
+	d_pSwapChain->Present(0, 0);
+}
+
+/// <summary>
+/// 画面を単色クリア
+/// </summary>
+/// <param name="ClearColor">色</param>
+/// <param name="dc">DeviceContext</param>
+/// <param name="rt">RenderTargetView</param>
+/// <param name="ds">DepthStencilView</param>
+void D3DX::RenderClearColor(float ClearColor[4])
+{
+	d_pDeviceContext->ClearRenderTargetView(d_pRenderTargetView, ClearColor);
+	d_pDeviceContext->ClearDepthStencilView(d_pDepthStencilView, D3D11_CLEAR_DEPTH, 1.0f, 0);
+}
+
+/// <summary>
+/// バーテックスバッファの作成
+/// </summary>
+/// <param name="Vertex">頂点配列</param>
+/// <param name="Vertex_Size">頂点配列サイズ</param>
+/// <returns></returns>
+HRESULT D3DX::CreateVertexBuffer(SIMPLE_VERTEX Vertex[],UINT Vertex_Size)
+{
+	//バーテックスバッファ作成
+	D3D11_BUFFER_DESC bd;
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(SIMPLE_VERTEX) * Vertex_Size;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = 0;
+	bd.MiscFlags = 0;
+	//初期化用データ
+	D3D11_SUBRESOURCE_DATA InitData;
+	InitData.pSysMem = Vertex;
+	if (FAILED(d_pDevice->CreateBuffer(&bd, &InitData, &d_pVertexBuffer)))
+	{
+		return E_FAIL;
+	}
 }
