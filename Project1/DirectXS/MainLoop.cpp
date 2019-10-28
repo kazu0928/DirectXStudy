@@ -20,12 +20,16 @@ INT WINAPI WinMain(HINSTANCE _hIns, HINSTANCE _hIns2, LPSTR _lps, INT _int)
 			//頂点を定義
 			SIMPLE_VERTEX vertices[] =
 			{
-				XMFLOAT3(-0.5,-0.5,0),//頂点1	
-				XMFLOAT3(-0.5,0.5,0), //頂点2
-				XMFLOAT3(0.5,-0.5,0),  //頂点3
-				XMFLOAT3(0.5,0.5,0), //頂点4	
+				XMFLOAT3(-1.0f,1.0f,-1.0f),
+				XMFLOAT3(1.0f,1.0f,-1.0f),
+				XMFLOAT3(1.0f,-1.0f,-1.0f),
+				XMFLOAT3(-1.0f,-1.0f,-1.0f),
+				XMFLOAT3(-1.0f,1.0f,1.0f),
+				XMFLOAT3(1.0f,1.0f,1.0f),
+				XMFLOAT3(1.0f,-1.0f,1.0f),
+				XMFLOAT3(-1.0f,-1.0f,1.0f),
 			};
-			if (SUCCEEDED(g_pD3DX->CreateVertexBuffer(vertices,sizeof(vertices)/sizeof(vertices[0]))))
+			if (SUCCEEDED(g_pD3DX->CreateVertexBuffer(vertices,(UINT)(sizeof(vertices)/sizeof(vertices[0])))))
 			{
 				void(*pApp)() = Main::App;
 				g_pWindow->Loop(pApp);
@@ -48,7 +52,7 @@ void Main::Render ()
 	//画面を単色で塗りつぶす
 	float ClearColor[4] = { 0,0,0.3f,1 };
 	g_pD3DX->RenderClearColor(ClearColor);
-	
+	/*描画パイプラインの構成、定数バッファへの書き込み*/
 	//ビュートランスフォーム
 	XMFLOAT4X4 mWorld, mView, mProj;
 	//ワールドトランスフォーム(ワールド座標)
@@ -63,6 +67,39 @@ void Main::Render ()
 	//シェーダの登録
 	g_pD3DX->d_pDeviceContext->VSSetShader(g_pD3DX->d_pVertexShader,NULL,0);
 	g_pD3DX->d_pDeviceContext->PSSetShader(g_pD3DX->d_pPixelShader, NULL, 0);
+	//ラスタライザとかもここで設定してもよし
+
+	D3D11_MAPPED_SUBRESOURCE pData;
+	CB_SIMPLE cb;
+	//データのポインタを取得してリソースのGPUアクセスの拒否
+	if (SUCCEEDED(g_pD3DX->d_pDeviceContext->Map((g_pD3DX->d_pConstantBuffer), 0, D3D11_MAP_WRITE_DISCARD, 0, &pData)))
+	{
+		//MVP行列を渡す
+		XMFLOAT4X4 m;
+		XMStoreFloat4x4(&m, XMLoadFloat4x4(&mWorld) *XMLoadFloat4x4(&mView)*XMLoadFloat4x4(&mProj));
+		XMStoreFloat4x4(&m, XMMatrixTranspose(XMLoadFloat4x4(&m)));
+		cb.mWVP = m;
+		//書き込み
+		memcpy_s(pData.pData, pData.RowPitch, (void*)(&cb), sizeof(cb));
+		//GPUの再アクセス可能に
+		g_pD3DX->d_pDeviceContext->Unmap(g_pD3DX->d_pConstantBuffer, 0);
+	}
+	//このコンスタントバッファーを、どのシェーダーで使うかを指定
+	g_pD3DX -> d_pDeviceContext->VSSetConstantBuffers(0, 1, &(g_pD3DX -> d_pConstantBuffer));
+	g_pD3DX->d_pDeviceContext->PSSetConstantBuffers(0, 1, &(g_pD3DX->d_pConstantBuffer));
+
+	//バーテックスバッファーをセット
+	UINT stride = sizeof(SIMPLE_VERTEX);
+	UINT offset = 0;
+	g_pD3DX->d_pDeviceContext->IASetVertexBuffers(0, 1, &g_pD3DX->d_pVertexBuffer, &stride, &offset);
+	//頂点インプットレイアウトをセット
+	g_pD3DX->d_pDeviceContext->IASetInputLayout(g_pD3DX->d_pVertexLayout);
+	//プリミティブ・トポロジーをセット
+	g_pD3DX->d_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//プリミティブをレンダリング
+	g_pD3DX->d_pDeviceContext->Draw(8, 0);
+
+
 	//画面更新
 	g_pD3DX->UpdateDisplay();
 

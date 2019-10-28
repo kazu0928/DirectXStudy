@@ -111,7 +111,6 @@ HRESULT D3DX::InitShader()
 		MessageBox(0, L"バーテックスシェーダー作成失敗", NULL, MB_OK);
 		return E_FAIL;
 	}
-	SAFE_RELEASE(pCompiledShader);
 	//インプットレイアウトを定義
 	D3D11_INPUT_ELEMENT_DESC layout[] =
 	{

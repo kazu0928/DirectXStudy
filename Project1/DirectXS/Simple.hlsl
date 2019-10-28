@@ -3,7 +3,6 @@
 cbuffer global
 {
 	matrix g_mWVP; //ワールド、ビュー、射影の合成変換行列
-	float4 g_PgColor;//ポリゴン色 
 };
 //
 //バーテックスシェーダー

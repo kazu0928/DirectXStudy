@@ -9,7 +9,6 @@
 struct CB_SIMPLE
 {
 	DirectX::XMFLOAT4X4 mWVP;//ワールド、ビュー、射影の合成変換行列
-	DirectX::XMFLOAT4 vColor;
 };
 struct SIMPLE_VERTEX
 {
