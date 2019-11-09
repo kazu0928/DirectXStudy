@@ -20,14 +20,9 @@ INT WINAPI WinMain(HINSTANCE _hIns, HINSTANCE _hIns2, LPSTR _lps, INT _int)
 			//頂点を定義
 			SIMPLE_VERTEX vertices[] =
 			{
-				XMFLOAT3(-1.0f,1.0f,-1.0f),
-				XMFLOAT3(1.0f,1.0f,-1.0f),
-				XMFLOAT3(1.0f,-1.0f,-1.0f),
-				XMFLOAT3(-1.0f,-1.0f,-1.0f),
-				XMFLOAT3(-1.0f,1.0f,1.0f),
-				XMFLOAT3(1.0f,1.0f,1.0f),
-				XMFLOAT3(1.0f,-1.0f,1.0f),
-				XMFLOAT3(-1.0f,-1.0f,1.0f),
+				XMFLOAT3(0.0f,0.4f,0.0f),
+				XMFLOAT3(0.4f,-0.4f,0.0f),
+				XMFLOAT3(-0.4f,-0.4f,0.0f)
 			};
 			if (SUCCEEDED(g_pD3DX->CreateVertexBuffer(vertices,(UINT)(sizeof(vertices)/sizeof(vertices[0])))))
 			{
@@ -50,20 +45,20 @@ void Main::App ()
 void Main::Render ()
 {
 	//画面を単色で塗りつぶす
-	float ClearColor[4] = { 0,0,0.3f,1 };
+	float ClearColor[4] = { 0,0.1f,0.2f,1 };
 	g_pD3DX->RenderClearColor(ClearColor);
 	/*描画パイプラインの構成、定数バッファへの書き込み*/
 	//ビュートランスフォーム
 	XMFLOAT4X4 mWorld, mView, mProj;
 	//ワールドトランスフォーム(ワールド座標)
-	XMStoreFloat4x4(&mWorld, XMMatrixTranslation(0, 0, 0));
+	XMStoreFloat4x4(&mWorld, XMMatrixRotationY(180));//単純にyaw回転させる
 	//ビュートランスフォーム
 	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f);//カメラの位置
 	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視する方向
 	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上位置
 	XMStoreFloat4x4(&mView, XMMatrixLookAtLH(XMLoadFloat3(&vEyePt), XMLoadFloat3(&vLookatPt), XMLoadFloat3(&vUpVec)));
 	//プロジェクショントランスフォーム
-	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(XM_PI/4/*FOV(ラジアン)*/, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT/*アス比*/, 0.1f/*近クリップ（表示領域までの距離）*/, 110.0f/*遠クリップ（表示領域）*/));
+	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(3.2f/2.0f/*FOV(ラジアン)*/, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT/*アス比*/, 0.1f/*近クリップ（表示領域までの距離）*/, 100.0f/*遠クリップ（表示領域）*/));
 	//シェーダの登録
 	g_pD3DX->d_pDeviceContext->VSSetShader(g_pD3DX->d_pVertexShader,NULL,0);
 	g_pD3DX->d_pDeviceContext->PSSetShader(g_pD3DX->d_pPixelShader, NULL, 0);
@@ -91,18 +86,18 @@ void Main::Render ()
 	//バーテックスバッファーをセット
 	UINT stride = sizeof(SIMPLE_VERTEX);
 	UINT offset = 0;
-	g_pD3DX->d_pDeviceContext->IASetVertexBuffers(0, 1, &g_pD3DX->d_pVertexBuffer, &stride, &offset);
+	g_pD3DX->d_pDeviceContext->IASetVertexBuffers(0, 1, &(g_pD3DX->d_pVertexBuffer), &stride, &offset);
 	//頂点インプットレイアウトをセット
 	g_pD3DX->d_pDeviceContext->IASetInputLayout(g_pD3DX->d_pVertexLayout);
 	//プリミティブ・トポロジーをセット
-	g_pD3DX->d_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	g_pD3DX->d_pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//プリミティブをレンダリング
-	g_pD3DX->d_pDeviceContext->Draw(8, 0);
+	g_pD3DX->d_pDeviceContext->Draw(3, 0);
+
 
 
 	//画面更新
 	g_pD3DX->UpdateDisplay();
-
 }
 
 

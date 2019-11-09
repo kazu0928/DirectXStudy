@@ -324,9 +324,9 @@ void MAIN::Render()
 	XMFLOAT3 vEyePt(0.0f, 1.0f, -2.0f); //カメラ（視点）位置
 	XMFLOAT3 vLookatPt(0.0f, 0.0f, 0.0f);//注視位置
 	XMFLOAT3 vUpVec(0.0f, 1.0f, 0.0f);//上方位置
-	XMStoreFloat4x4(&mView, XMMatrixLookAtLH( XMLoadFloat3( &vEyePt), XMLoadFloat3(&vLookatPt), XMLoadFloat3(&vUpVec)));
+	XMStoreFloat4x4(&mView, XMMatrixLookAtLH(XMLoadFloat3(&vEyePt), XMLoadFloat3(&vLookatPt), XMLoadFloat3(&vUpVec)));
 	// プロジェクショントランスフォーム（射影変換）
-	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(3.2f, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT, 0.1f, 110.0f));
+	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(3.2f/4.0f, (FLOAT)WINDOW_WIDTH / (FLOAT)WINDOW_HEIGHT, 0.1f, 110.0f));
 	//使用するシェーダーの登録
 	m_pDeviceContext->VSSetShader(m_pVertexShader, NULL, 0);
 	m_pDeviceContext->PSSetShader(m_pPixelShader, NULL, 0);

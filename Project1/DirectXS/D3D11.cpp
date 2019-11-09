@@ -162,6 +162,12 @@ void D3DX::DestroyD3D ()
 	SAFE_RELEASE (d_pDepthStencil);
 	SAFE_RELEASE (d_pDeviceContext);
 	SAFE_RELEASE (d_pDevice);
+
+	SAFE_RELEASE(d_pConstantBuffer);
+	SAFE_RELEASE(d_pVertexShader);
+	SAFE_RELEASE(d_pPixelShader);
+	SAFE_RELEASE(d_pVertexBuffer);
+	SAFE_RELEASE(d_pVertexLayout);
 }
 //
 /*↓ラッパー関数*/
@@ -196,18 +202,25 @@ void D3DX::RenderClearColor(float ClearColor[4])
 /// <returns></returns>
 HRESULT D3DX::CreateVertexBuffer(SIMPLE_VERTEX Vertex[],UINT Vertex_Size)
 {
+	SIMPLE_VERTEX vertices[] =
+	{
+		XMFLOAT3(0.4f,0.0f,0.0f),
+		XMFLOAT3(0.4f,-0.4f,0.0f),
+		XMFLOAT3(-0.4f,-0.4f,0.0f)
+	};
 	//バーテックスバッファ作成
 	D3D11_BUFFER_DESC bd;
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SIMPLE_VERTEX) * Vertex_Size;
+	bd.ByteWidth = sizeof(SIMPLE_VERTEX) * 3;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 	bd.MiscFlags = 0;
 	//初期化用データ
 	D3D11_SUBRESOURCE_DATA InitData;
-	InitData.pSysMem = Vertex;
+	InitData.pSysMem = vertices;
 	if (FAILED(d_pDevice->CreateBuffer(&bd, &InitData, &d_pVertexBuffer)))
 	{
 		return E_FAIL;
 	}
+	return S_OK;
 }
