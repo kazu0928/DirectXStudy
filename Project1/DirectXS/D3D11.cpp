@@ -222,5 +222,6 @@ HRESULT D3DX::CreateVertexBuffer(SIMPLE_VERTEX Vertex[],UINT Vertex_Size)
 	{
 		return E_FAIL;
 	}
+
 	return S_OK;
 }
